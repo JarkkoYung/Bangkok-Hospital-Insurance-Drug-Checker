@@ -4,25 +4,31 @@
   <meta charset="UTF-8" />
   <title>Bangkok Hospital Insurance Drug Checker</title>
 
-  <!-- Supabase CDN -->
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
     body {
-      font-family: system-ui, -apple-system;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont;
       background: #f5f7fb;
       padding: 40px;
     }
     .card {
-      max-width: 720px;
+      max-width: 760px;
       margin: auto;
       background: white;
       border-radius: 16px;
       padding: 32px;
       box-shadow: 0 20px 40px rgba(0,0,0,.08);
     }
-    h1 { margin-top: 0; }
-    label { font-weight: 600; margin-top: 20px; display: block; }
+    h1 {
+      margin-top: 0;
+    }
+    label {
+      font-weight: 600;
+      margin-top: 20px;
+      display: block;
+    }
     input, select, button {
       width: 100%;
       padding: 14px;
@@ -36,10 +42,37 @@
       background: #5b5bd6;
       color: white;
       border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    .results {
+      margin-top: 28px;
+    }
+    .result-item {
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .covered {
+      background: #e8f7ef;
+      border-left: 6px solid #2ecc71;
+    }
+    .not-covered {
+      background: #fdecea;
+      border-left: 6px solid #e74c3c;
+    }
+    .insurance-name {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .status {
+      font-weight: 600;
     }
     .footer {
       text-align: center;
-      margin-top: 28px;
+      margin-top: 32px;
       color: #999;
       font-size: 14px;
     }
@@ -62,102 +95,114 @@
 
   <button id="checkBtn">Check coverage</button>
 
+  <div id="results" class="results"></div>
+
   <div class="footer">Designed by Jarkko</div>
 </div>
 
 <script>
-  // ✅ 绝对防重复声明
-  if (!window._supabaseClient) {
-    window._supabaseClient = window.supabase.createClient(
-      "https://dtfekjqhnyywjneutbli.supabase.co",
-      "sb_publishable_ufJ1KgttNIqvmS46kK8P7g_HuYpAQ5N"
-    );
+/* ========= Supabase init (ABSOLUTE SAFE) ========= */
+if (!window.__supabase) {
+  window.__supabase = supabase.createClient(
+    "https://dtfekjqhnyywjneutbli.supabase.co",
+    "sb_publishable_ufJ1KgttNIqvmS46kK8P7g_HuYpAQ5N"
+  );
+}
+const db = window.__supabase;
+
+/* ========= Load service scopes ========= */
+const scopeSelect = document.getElementById("serviceScopeSelect");
+
+async function loadServiceScopes() {
+  const { data, error } = await db
+    .from("service_scope")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("id");
+
+  if (error) {
+    scopeSelect.innerHTML = "<option>Error loading</option>";
+    console.error(error);
+    return;
   }
 
-  var supabase = window._supabaseClient;
-
-  var select = document.getElementById("serviceScopeSelect");
-
-  async function loadServiceScopes() {
-    console.log("▶ loading service_scope");
-
-    const { data, error } = await supabase
-      .from("service_scope")
-      .select("id, name")
-      .eq("is_active", true)
-      .order("id");
-
-    if (error) {
-      console.error("❌ error:", error);
-      select.innerHTML = "<option>Error loading</option>";
-      return;
-    }
-
-    console.log("✅ data:", data);
-
-    select.innerHTML = "";
-    data.forEach(s => {
-      var opt = document.createElement("option");
-      opt.value = s.id;
-      opt.textContent = s.name;
-      select.appendChild(opt);
-    });
-  }
-
-  loadServiceScopes();
-
-   document.getElementById("checkBtn").addEventListener("click", async () => {
-    const drug = document.getElementById("drugInput").value.trim();
-    const scopeId = document.getElementById("serviceScopeSelect").value;
-
-    console.log("▶ click", { drug, scopeId });
-
-    if (!drug) {
-      alert("Please enter drug name");
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("drug")
-      .select("id, generic_name")
-      .ilike("generic_name", `%${drug}%`)
-      .limit(5);
-
-    if (error) {
-      console.error(error);
-      alert("Drug query error");
-      return;
-    }
-
-    const drugId = data[0].id;
-
-const { data: coverage, error: coverageError } = await supabase
-  .from("coverage_rule")
-  .select("coverage_status, condition_text, insurance_company_id")
-  .eq("drug_id", drugId)
-  .eq("service_scope_id", scopeId)
-  .eq("is_active", true);
-
-if (coverageError) {
-  console.error(coverageError);
-  alert("Coverage query error");
-  return;
-}
-
-if (!coverage.length) {
-  alert("No coverage rule found");
-  return;
-}
-
-alert(
-  coverage
-    .map(
-      c =>
-        `Insurance ID ${c.insurance_company_id}: ${c.coverage_status}\n${c.condition_text || ""}`
-    )
-    .join("\n\n")
-    );
+  scopeSelect.innerHTML = "";
+  data.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = s.name;
+    scopeSelect.appendChild(opt);
   });
+}
+
+loadServiceScopes();
+
+/* ========= Main check ========= */
+document.getElementById("checkBtn").addEventListener("click", async () => {
+  const drugName = document.getElementById("drugInput").value.trim();
+  const scopeId = scopeSelect.value;
+  const resultsDiv = document.getElementById("results");
+
+  resultsDiv.innerHTML = "";
+
+  if (!drugName) {
+    alert("Please enter drug name");
+    return;
+  }
+
+  // 1. find drug
+  const { data: drugs, error: drugError } = await db
+    .from("drug")
+    .select("id, generic_name")
+    .ilike("generic_name", `%${drugName}%`)
+    .limit(1);
+
+  if (drugError || !drugs.length) {
+    alert("Drug not found");
+    return;
+  }
+
+  const drugId = drugs[0].id;
+
+  // 2. query coverage with insurance name
+  const { data: coverage, error: covError } = await db
+    .from("coverage_rule")
+    .select(`
+      coverage_status,
+      condition_text,
+      insurance_company:insurance_company_id (
+        name
+      )
+    `)
+    .eq("drug_id", drugId)
+    .eq("service_scope_id", scopeId)
+    .eq("is_active", true);
+
+  if (covError) {
+    console.error(covError);
+    alert("Coverage query error");
+    return;
+  }
+
+  if (!coverage.length) {
+    resultsDiv.innerHTML = "<p>No coverage rule found.</p>";
+    return;
+  }
+
+  // 3. render results
+  coverage.forEach(c => {
+    const div = document.createElement("div");
+    const isCovered = c.coverage_status === "covered";
+
+    div.className = "result-item " + (isCovered ? "covered" : "not-covered");
+    div.innerHTML = `
+      <div class="insurance-name">${c.insurance_company?.name || "Unknown insurance"}</div>
+      <div class="status">${c.coverage_status.toUpperCase()}</div>
+      <div>${c.condition_text || ""}</div>
+    `;
+    resultsDiv.appendChild(div);
+  });
+});
 </script>
 
 </body>
