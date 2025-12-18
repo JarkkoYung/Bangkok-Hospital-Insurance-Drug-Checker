@@ -129,10 +129,38 @@
       return;
     }
 
-    alert(
-      data.length
-        ? `Found: ${data.map(d => d.generic_name).join(", ")}`
-        : "No drug found"
+    const drugId = data[0].id;
+
+const { data: coverage, error: coverageError } = await supabase
+  .from("coverage_rule")
+  .select(`
+    coverage_status,
+    condition_text,
+    insurance_company ( name ),
+    service_scope ( name )
+  `)
+  .eq("drug_id", drugId)
+  .eq("service_scope_id", scopeId)
+  .eq("is_active", true);
+
+if (coverageError) {
+  console.error(coverageError);
+  alert("Coverage query error");
+  return;
+}
+
+if (!coverage.length) {
+  alert("No coverage rule found");
+  return;
+}
+
+alert(
+  coverage
+    .map(
+      c =>
+        `${c.insurance_company.name}: ${c.coverage_status}\n${c.condition_text || ""}`
+    )
+    .join("\n\n")
     );
   });
 </script>
