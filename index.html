@@ -4,12 +4,11 @@
   <meta charset="UTF-8" />
   <title>Bangkok Hospital Insurance Drug Checker</title>
 
-  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont;
+      font-family: system-ui, -apple-system;
       background: #f5f7fb;
       padding: 40px;
     }
@@ -21,9 +20,7 @@
       padding: 32px;
       box-shadow: 0 20px 40px rgba(0,0,0,.08);
     }
-    h1 {
-      margin-top: 0;
-    }
+    h1 { margin-top: 0; }
     label {
       font-weight: 600;
       margin-top: 20px;
@@ -44,13 +41,10 @@
       border: none;
       cursor: pointer;
     }
-    button:hover {
-      opacity: 0.9;
-    }
     .results {
       margin-top: 28px;
     }
-    .result-item {
+    .result {
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 12px;
@@ -63,12 +57,9 @@
       background: #fdecea;
       border-left: 6px solid #e74c3c;
     }
-    .insurance-name {
+    .insurance {
       font-weight: 700;
       margin-bottom: 6px;
-    }
-    .status {
-      font-weight: 600;
     }
     .footer {
       text-align: center;
@@ -89,7 +80,7 @@
   <input id="drugInput" placeholder="e.g. Paracetamol" />
 
   <label>Service scope</label>
-  <select id="serviceScopeSelect">
+  <select id="scopeSelect">
     <option>Loading…</option>
   </select>
 
@@ -101,19 +92,19 @@
 </div>
 
 <script>
-/* ========= Supabase init (ABSOLUTE SAFE) ========= */
-if (!window.__supabase) {
-  window.__supabase = supabase.createClient(
+/* ===== Supabase init (safe) ===== */
+if (!window.__db) {
+  window.__db = supabase.createClient(
     "https://dtfekjqhnyywjneutbli.supabase.co",
     "sb_publishable_ufJ1KgttNIqvmS46kK8P7g_HuYpAQ5N"
   );
 }
-const db = window.__supabase;
+const db = window.__db;
 
-/* ========= Load service scopes ========= */
-const scopeSelect = document.getElementById("serviceScopeSelect");
+/* ===== Load service scope ===== */
+const scopeSelect = document.getElementById("scopeSelect");
 
-async function loadServiceScopes() {
+(async () => {
   const { data, error } = await db
     .from("service_scope")
     .select("id, name")
@@ -122,87 +113,88 @@ async function loadServiceScopes() {
 
   if (error) {
     scopeSelect.innerHTML = "<option>Error loading</option>";
-    console.error(error);
     return;
   }
 
   scopeSelect.innerHTML = "";
   data.forEach(s => {
-    const opt = document.createElement("option");
-    opt.value = s.id;
-    opt.textContent = s.name;
-    scopeSelect.appendChild(opt);
+    const o = document.createElement("option");
+    o.value = s.id;
+    o.textContent = s.name;
+    scopeSelect.appendChild(o);
   });
-}
+})();
 
-loadServiceScopes();
-
-/* ========= Main check ========= */
-document.getElementById("checkBtn").addEventListener("click", async () => {
-  const drugName = document.getElementById("drugInput").value.trim();
+/* ===== Check coverage ===== */
+document.getElementById("checkBtn").onclick = async () => {
+  const drugText = document.getElementById("drugInput").value.trim();
   const scopeId = scopeSelect.value;
-  const resultsDiv = document.getElementById("results");
+  const results = document.getElementById("results");
+  results.innerHTML = "";
 
-  resultsDiv.innerHTML = "";
-
-  if (!drugName) {
+  if (!drugText) {
     alert("Please enter drug name");
     return;
   }
 
-  // 1. find drug
-  const { data: drugs, error: drugError } = await db
+  /* 1️⃣ find drug */
+  const { data: drugs, error: drugErr } = await db
     .from("drug")
     .select("id, generic_name")
-    .ilike("generic_name", `%${drugName}%`)
+    .ilike("generic_name", `%${drugText}%`)
     .limit(1);
 
-  if (drugError || !drugs.length) {
+  if (drugErr || !drugs.length) {
     alert("Drug not found");
     return;
   }
 
   const drugId = drugs[0].id;
 
-  // 2. query coverage with insurance name
-  const { data: coverage, error: covError } = await db
+  /* 2️⃣ find coverage rules */
+  const { data: rules, error: ruleErr } = await db
     .from("coverage_rule")
-    .select(`
-      coverage_status,
-      condition_text,
-      insurance_company:insurance_company_id (
-        name
-      )
-    `)
+    .select("insurance_company_id, coverage_status, condition_text")
     .eq("drug_id", drugId)
     .eq("service_scope_id", scopeId)
     .eq("is_active", true);
 
-  if (covError) {
-    console.error(covError);
+  if (ruleErr) {
+    console.error(ruleErr);
     alert("Coverage query error");
     return;
   }
 
-  if (!coverage.length) {
-    resultsDiv.innerHTML = "<p>No coverage rule found.</p>";
+  if (!rules.length) {
+    results.innerHTML = "<p>No coverage rule found.</p>";
     return;
   }
 
-  // 3. render results
-  coverage.forEach(c => {
-    const div = document.createElement("div");
-    const isCovered = c.coverage_status === "covered";
+  /* 3️⃣ load insurance company names */
+  const ids = [...new Set(rules.map(r => r.insurance_company_id))];
 
-    div.className = "result-item " + (isCovered ? "covered" : "not-covered");
+  const { data: companies } = await db
+    .from("insurance_company")
+    .select("id, name")
+    .in("id", ids);
+
+  const nameMap = {};
+  companies?.forEach(c => nameMap[c.id] = c.name);
+
+  /* 4️⃣ render */
+  rules.forEach(r => {
+    const div = document.createElement("div");
+    const covered = r.coverage_status === "covered";
+
+    div.className = "result " + (covered ? "covered" : "not-covered");
     div.innerHTML = `
-      <div class="insurance-name">${c.insurance_company?.name || "Unknown insurance"}</div>
-      <div class="status">${c.coverage_status.toUpperCase()}</div>
-      <div>${c.condition_text || ""}</div>
+      <div class="insurance">${nameMap[r.insurance_company_id] || "Unknown insurance"}</div>
+      <div><strong>${r.coverage_status.toUpperCase()}</strong></div>
+      <div>${r.condition_text || ""}</div>
     `;
-    resultsDiv.appendChild(div);
+    results.appendChild(div);
   });
-});
+};
 </script>
 
 </body>
