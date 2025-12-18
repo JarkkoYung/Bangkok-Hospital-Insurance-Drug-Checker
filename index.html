@@ -5,263 +5,228 @@
   <title>Bangkok Hospital Insurance Drug Checker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Supabase JS v2 -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase CDN -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
   <style>
     body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f3f5f9;
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
-      background: #f4f6fa;
+      padding: 40px 16px;
       color: #1f2937;
     }
-
-    .container {
-      max-width: 900px;
-      margin: 60px auto;
-      background: white;
-      padding: 48px;
-      border-radius: 20px;
+    .card {
+      max-width: 720px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 32px;
+      border-radius: 16px;
       box-shadow: 0 20px 40px rgba(0,0,0,0.08);
     }
-
     h1 {
-      margin: 0 0 8px;
-      font-size: 36px;
+      margin-top: 0;
+      font-size: 32px;
     }
-
-    .subtitle {
+    p.sub {
       color: #6b7280;
       margin-bottom: 32px;
     }
-
     label {
       font-weight: 600;
-      margin-top: 24px;
       display: block;
+      margin-top: 20px;
+      margin-bottom: 8px;
     }
-
-    input, select, button {
+    input, select {
       width: 100%;
-      margin-top: 8px;
       padding: 14px 16px;
-      border-radius: 12px;
-      border: 1px solid #d1d5db;
       font-size: 16px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
     }
-
     button {
-      margin-top: 32px;
-      background: #2563eb;
-      color: white;
-      border: none;
+      margin-top: 28px;
+      width: 100%;
+      padding: 16px;
       font-size: 18px;
+      border: none;
+      border-radius: 12px;
+      background: #4f46e5;
+      color: #fff;
       cursor: pointer;
     }
-
     button:hover {
-      background: #1e40af;
+      background: #4338ca;
     }
-
+    .error {
+      margin-top: 16px;
+      color: #b91c1c;
+      font-weight: 600;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 32px;
     }
-
     th, td {
-      padding: 14px;
-      border-bottom: 1px solid #e5e7eb;
       text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #e5e7eb;
     }
-
     th {
       background: #f9fafb;
-      font-weight: 600;
     }
-
-    .logo {
-      height: 32px;
-    }
-
-    .status-covered {
-      color: #16a34a;
-      font-weight: 600;
-    }
-
-    .status-not {
-      color: #dc2626;
-      font-weight: 600;
-    }
-
+    .covered { color: #15803d; font-weight: 600; }
+    .not-covered { color: #b91c1c; font-weight: 600; }
+    .conditional { color: #ca8a04; font-weight: 600; }
     .footer {
-      margin-top: 48px;
+      margin-top: 40px;
       text-align: center;
-      font-size: 13px;
+      font-size: 12px;
       color: #9ca3af;
     }
   </style>
 </head>
 
 <body>
-  <div class="container">
+  <div class="card">
     <h1>Bangkok Hospital Insurance Drug Checker</h1>
-    <div class="subtitle">Check insurance coverage by drug and service scope</div>
+    <p class="sub">Check insurance coverage by drug and service scope</p>
 
     <label>Drug name</label>
     <input id="drugInput" placeholder="e.g. Paracetamol" />
 
     <label>Service scope</label>
-    <select id="serviceScopeSelect">
+    <select id="scopeSelect">
       <option>Loading...</option>
     </select>
 
     <button onclick="checkCoverage()">Check coverage</button>
 
+    <div id="error" class="error"></div>
+
     <div id="result"></div>
 
     <div class="footer">
-      This software is designed by Jarkko
+      Designed by Jarkko
     </div>
   </div>
 
-<script>
-/* =========================
-   Supabase init (FIXED)
-========================= */
-const SUPABASE_URL = "https://dtfekjqhnyywjneutbli.supabase.co";
-const SUPABASE_KEY = "sb_publishable_ufJ1KgttNIqvmS46kK8P7g_HuYpAQ5N";
+  <script>
+    /* =========================
+       Supabase config
+       ========================= */
+    const SUPABASE_URL = "https://dtfekjqhnyywjneutbli.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_ufJ1KgttNIqvmS46kK8P7g_HuYpAQ5N";
 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // ❗关键修复：使用 sb，而不是 supabase
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* =========================
-   Load service scopes
-========================= */
-async function loadServiceScopes() {
-  const { data, error } = await supabase
-    .from("service_scope")
-    .select("*")
-    .eq("is_active", true)
-    .order("id");
+    const scopeSelect = document.getElementById("scopeSelect");
+    const errorDiv = document.getElementById("error");
+    const resultDiv = document.getElementById("result");
 
-  if (error) {
-    console.error(error);
-    return;
-  }
+    /* =========================
+       Load service scopes
+       ========================= */
+    async function loadServiceScopes() {
+      const { data, error } = await sb
+        .from("service_scope")
+        .select("code, name")
+        .eq("is_active", true)
+        .order("id");
 
-  const select = document.getElementById("serviceScopeSelect");
-  select.innerHTML = "";
+      if (error) {
+        errorDiv.textContent = "Failed to load service scopes.";
+        console.error(error);
+        return;
+      }
 
-  data.forEach((s, index) => {
-    const opt = document.createElement("option");
-    opt.value = s.id;
-    opt.textContent = s.name;
-    if (s.code === "OPD") opt.selected = true;
-    select.appendChild(opt);
-  });
-}
+      scopeSelect.innerHTML = "";
+      data.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.code;
+        opt.textContent = s.name;
+        scopeSelect.appendChild(opt);
+      });
 
-/* =========================
-   Main search
-========================= */
-async function checkCoverage() {
-  const drugName = document.getElementById("drugInput").value.trim();
-  const scopeId = document.getElementById("serviceScopeSelect").value;
-  const resultDiv = document.getElementById("result");
-  resultDiv.innerHTML = "Searching...";
+      // default OPD
+      scopeSelect.value = "OPD";
+    }
 
-  if (!drugName) {
-    resultDiv.innerHTML = "Please enter a drug name.";
-    return;
-  }
+    loadServiceScopes();
 
-  const { data: drugs, error: drugError } = await supabase
-    .from("drug")
-    .select("*")
-    .or(`generic_name.ilike.%${drugName}%,brand_name.ilike.%${drugName}%`);
+    /* =========================
+       Check coverage
+       ========================= */
+    async function checkCoverage() {
+      errorDiv.textContent = "";
+      resultDiv.innerHTML = "";
 
-  if (drugError || !drugs.length) {
-    resultDiv.innerHTML = "No drug found.";
-    return;
-  }
+      const drug = document.getElementById("drugInput").value.trim();
+      const scope = scopeSelect.value;
 
-  const drugIds = drugs.map(d => d.id);
+      if (!drug) {
+        errorDiv.textContent = "Please enter a drug name.";
+        return;
+      }
 
-  const { data: rules, error: ruleError } = await supabase
-    .from("coverage_rule")
-    .select(`
-      coverage_status,
-      condition_text,
-      insurance_company (
-        name,
-        logo_url
-      )
-    `)
-    .in("drug_id", drugIds)
-    .eq("service_scope_id", scopeId);
+      const { data, error } = await sb
+        .from("coverage_rule")
+        .select(`
+          coverage_status,
+          condition_text,
+          insurance_company (
+            name,
+            logo_url
+          )
+        `)
+        .ilike("drug_generic_name", `%${drug}%`)
+        .eq("service_scope_code", scope);
 
-  if (ruleError || !rules.length) {
-    resultDiv.innerHTML = "No coverage rules found.";
-    return;
-  }
+      if (error) {
+        errorDiv.textContent = "Query error. Check console.";
+        console.error(error);
+        return;
+      }
 
-  renderTable(rules);
-}
+      if (!data || data.length === 0) {
+        errorDiv.textContent = "No coverage data found.";
+        return;
+      }
 
-/* =========================
-   Render result table
-========================= */
-function renderTable(rows) {
-  let html = `
-    <button onclick="exportCSV()">Export CSV</button>
-    <table>
-      <tr>
-        <th>Insurance</th>
-        <th>Status</th>
-        <th>Condition</th>
-      </tr>
-  `;
+      let html = `
+        <table>
+          <tr>
+            <th>Insurance</th>
+            <th>Status</th>
+            <th>Condition</th>
+          </tr>
+      `;
 
-  rows.forEach(r => {
-    html += `
-      <tr>
-        <td>
-          ${r.insurance_company.logo_url
-            ? `<img class="logo" src="${r.insurance_company.logo_url}">`
-            : r.insurance_company.name}
-        </td>
-        <td class="${r.coverage_status === 'Covered' ? 'status-covered' : 'status-not'}">
-          ${r.coverage_status}
-        </td>
-        <td>${r.condition_text || "-"}</td>
-      </tr>
-    `;
-  });
+      data.forEach(r => {
+        let cls = "conditional";
+        if (r.coverage_status === "covered") cls = "covered";
+        if (r.coverage_status === "not_covered") cls = "not-covered";
 
-  html += "</table>";
-  document.getElementById("result").innerHTML = html;
-}
+        html += `
+          <tr>
+            <td>
+              ${r.insurance_company?.logo_url
+                ? `<img src="${r.insurance_company.logo_url}" height="24" style="vertical-align:middle;margin-right:8px;">`
+                : ""}
+              ${r.insurance_company?.name || ""}
+            </td>
+            <td class="${cls}">${r.coverage_status}</td>
+            <td>${r.condition_text || "-"}</td>
+          </tr>
+        `;
+      });
 
-/* =========================
-   CSV Export
-========================= */
-function exportCSV() {
-  const rows = [...document.querySelectorAll("table tr")].map(tr =>
-    [...tr.children].map(td => `"${td.innerText}"`).join(",")
-  );
-
-  const blob = new Blob([rows.join("\n")], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "coverage_result.csv";
-  a.click();
-}
-
-/* =========================
-   Init
-========================= */
-loadServiceScopes();
-</script>
+      html += "</table>";
+      resultDiv.innerHTML = html;
+    }
+  </script>
 </body>
 </html>
