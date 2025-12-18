@@ -1,218 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Bangkok Hospital Insurance Drug Checker</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <title>Bangkok Hospital Insurance Drug Checker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<style>
-  :root {
-    --purple: #6b63d1;
-    --green-bg: #eef7ee;
-    --green-border: #7bc47f;
-    --red-bg: #fdeeee;
-    --red-border: #e07a7a;
-  }
+  <style>
+    :root {
+      --green-bg: #eef7ee;
+      --green-border: #7bc47f;
+      --purple: #6b63d1;
+      --text-muted: #666;
+    }
 
-  body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #f5f6fa;
-    margin: 0;
-    padding: 16px;
-  }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f5f6fa;
+      margin: 0;
+      padding: 40px;
+    }
 
-  .container {
-    max-width: 900px;
-    margin: auto;
-    background: #fff;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.05);
-  }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.05);
+    }
 
-  h1 {
-    margin-top: 0;
-    font-size: 28px;
-  }
+    h1 {
+      margin-top: 0;
+      font-size: 32px;
+    }
 
-  label {
-    display: block;
-    margin-top: 18px;
-    font-weight: 600;
-  }
+    .subtitle {
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
 
-  input, select, button {
-    width: 100%;
-    padding: 14px;
-    font-size: 16px;
-    border-radius: 10px;
-    border: 1px solid #ccc;
-  }
+    label {
+      font-weight: 600;
+      display: block;
+      margin-top: 20px;
+      margin-bottom: 6px;
+    }
 
-  button {
-    margin-top: 22px;
-    background: var(--purple);
-    color: #fff;
-    border: none;
-    font-weight: 600;
-    cursor: pointer;
-  }
+    input, select, button {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+    }
 
-  .results {
-    margin-top: 28px;
-  }
+    button {
+      margin-top: 24px;
+      background: var(--purple);
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
 
-  .card {
-    border-left: 6px solid;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 14px;
-  }
+    .results {
+      margin-top: 32px;
+    }
 
-  .covered {
-    background: var(--green-bg);
-    border-color: var(--green-border);
-  }
+    .coverage-card {
+      border-left: 6px solid var(--green-border);
+      background: var(--green-bg);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
 
-  .not-covered {
-    background: var(--red-bg);
-    border-color: var(--red-border);
-  }
+    .company-name {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
 
-  .company {
-    font-size: 18px;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
+    .status {
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
 
-  .badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 6px;
-  }
-
-  .badge {
-    padding: 6px 10px;
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  .ok {
-    background: #dff2e1;
-    color: #1f7a35;
-  }
-
-  .no {
-    background: #f9d6d6;
-    color: #8a1f1f;
-  }
-
-  footer {
-    text-align: center;
-    margin-top: 32px;
-    color: #999;
-    font-size: 14px;
-  }
-</style>
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      color: #999;
+      font-size: 14px;
+    }
+  </style>
 </head>
 
 <body>
-<div class="container">
-  <h1>Bangkok Hospital Insurance Drug Checker</h1>
+  <div class="container">
+    <h1>Bangkok Hospital Insurance Drug Checker</h1>
+    <div class="subtitle">
+      Check insurance coverage by drug and service scope
+    </div>
 
-  <label>Drug name</label>
-  <input id="drugInput" placeholder="e.g. para" />
+    <label>Drug name</label>
+    <input id="drugInput" placeholder="e.g. Paracetamol" />
 
-  <label>Service scope</label>
-  <select id="scopeInput">
-    <option value="OPD">OPD</option>
-    <option value="IPD">IPD</option>
-    <option value="ER">ER</option>
-    <option value="ICU">ICU</option>
-  </select>
+    <label>Service scope</label>
+    <select id="serviceScope">
+      <option value="OPD">OPD</option>
+      <option value="IPD">IPD</option>
+      <option value="ER">ER</option>
+      <option value="ICU">ICU</option>
+    </select>
 
-  <button onclick="check()">Check coverage</button>
+    <button onclick="checkCoverage()">Check coverage</button>
 
-  <div class="results" id="results"></div>
-</div>
+    <div class="results" id="results"></div>
+  </div>
 
-<footer>Designed by Jarkko</footer>
+  <footer>
+    Designed by Jarkko
+  </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-const db = window.__db || supabase.createClient(
-  "https://dtfekjqhnyywjneutbli.supabase.co",
-  "sb_publishable_ufJ1KgttNIqvmS46kK8P7g_HuYpAQ5N"
-);
-window.__db = db;
-
-async function check() {
-  results.innerHTML = "";
-  const keyword = drugInput.value.trim().toLowerCase();
-  if (!keyword) return;
-
-  // ✅ 完美 index 核心精神：先全拿，再在前端筛
-  const { data: rules, error } = await db
-    .from("coverage_rule")
-    .select("*");
-
-  if (error) {
-    results.textContent = "ERROR: " + error.message;
-    return;
-  }
-
-  // 🔍 在所有 string 字段里找 para
-  const matched = rules.filter(r =>
-    Object.values(r).some(v =>
-      typeof v === "string" && v.toLowerCase().includes(keyword)
-    )
-  );
-
-  if (matched.length === 0) {
-    results.textContent = "No coverage data found.";
-    return;
-  }
-
-  // 拿保险公司
-  const companyIds = [...new Set(matched.map(r => r.insurance_company_id))];
-  const { data: companies } = await db
-    .from("insurance_company")
-    .select("*")
-    .in("id", companyIds);
-
-  // 归并
-  const grouped = {};
-  matched.forEach(r => {
-    const company = companies.find(c => c.id === r.insurance_company_id);
-    if (!grouped[r.insurance_company_id]) {
-      grouped[r.insurance_company_id] = {
-        name: company?.name || "Unknown",
-        rules: []
-      };
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    if (!window.__db) {
+      window.__db = supabase.createClient(
+        "https://dtfekjqhnyywjneutbli.supabase.co",
+        "sb_publishable_ufJ1KgttNIqvmS46kK8P7g_HuYpAQ5N"
+      );
     }
-    grouped[r.insurance_company_id].rules.push(r);
-  });
 
-  Object.values(grouped).forEach(g => {
-    const hasCovered = g.rules.some(r => r.coverage_status === "COVERED");
-    const card = document.createElement("div");
-    card.className = "card " + (hasCovered ? "covered" : "not-covered");
+    const db = window.__db;
+    const resultsContainer = document.getElementById("results");
 
-    card.innerHTML = `
-      <div class="company">${g.name}</div>
-      <div class="badges">
-        ${g.rules.map(r => `
-          <span class="badge ${r.coverage_status === "COVERED" ? "ok" : "no"}">
-            ${r.service_scope}
-          </span>
-        `).join("")}
-      </div>
-    `;
-    results.appendChild(card);
-  });
-}
-</script>
+    async function checkCoverage() {
+      resultsContainer.innerHTML = "";
+
+      const scope = document.getElementById("serviceScope").value;
+
+      // ✅ 稳定基线：只按 service_scope 查
+      const { data: rules, error } = await db
+        .from("coverage_rule")
+        .select("*")
+        .eq("service_scope", scope);
+
+      if (error || !rules || rules.length === 0) {
+        resultsContainer.innerHTML = "<p>No coverage data found.</p>";
+        return;
+      }
+
+      const companyIds = [...new Set(rules.map(r => r.insurance_company_id))];
+
+      const { data: companies } = await db
+        .from("insurance_company")
+        .select("*")
+        .in("id", companyIds);
+
+      rules.forEach(r => {
+        const company = companies.find(c => c.id === r.insurance_company_id);
+        const card = document.createElement("div");
+        card.className = "coverage-card";
+
+        card.innerHTML = `
+          <div class="company-name">${company?.name || "Unknown"}</div>
+          <div class="status">${r.coverage_status}</div>
+          <div>${r.note || ""}</div>
+        `;
+
+        resultsContainer.appendChild(card);
+      });
+    }
+  </script>
 </body>
 </html>
