@@ -60,7 +60,7 @@
     <option>Loading…</option>
   </select>
 
-  <button>Check coverage</button>
+  <button id="checkBtn">Check coverage</button>
 
   <div class="footer">Designed by Jarkko</div>
 </div>
@@ -105,6 +105,36 @@
   }
 
   loadServiceScopes();
+
+   document.getElementById("checkBtn").addEventListener("click", async () => {
+    const drug = document.getElementById("drugInput").value.trim();
+    const scopeId = document.getElementById("serviceScopeSelect").value;
+
+    console.log("▶ click", { drug, scopeId });
+
+    if (!drug) {
+      alert("Please enter drug name");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("drug")
+      .select("id, generic_name")
+      .ilike("generic_name", `%${drug}%`)
+      .limit(5);
+
+    if (error) {
+      console.error(error);
+      alert("Drug query error");
+      return;
+    }
+
+    alert(
+      data.length
+        ? `Found: ${data.map(d => d.generic_name).join(", ")}`
+        : "No drug found"
+    );
+  });
 </script>
 
 </body>
