@@ -35,14 +35,6 @@
     font-size: 26px;
   }
 
-  .top {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-  }
-
   label {
     display: block;
     margin-top: 16px;
@@ -63,6 +55,7 @@
     color: #fff;
     border: none;
     font-weight: 600;
+    cursor: pointer;
   }
 
   .results {
@@ -122,18 +115,12 @@
 <body>
 <div class="container">
 
-  <div class="top">
-    <h1 id="title">Bangkok Hospital Insurance Drug Checker</h1>
-    <select id="lang" onchange="switchLang()">
-      <option value="en">EN</option>
-      <option value="th">TH</option>
-    </select>
-  </div>
+  <h1>Bangkok Hospital Insurance Drug Checker</h1>
 
-  <label id="drugLabel">Drug name</label>
+  <label>Drug name</label>
   <input id="drugInput" placeholder="e.g. Paracetamol" />
 
-  <label id="scopeLabel">Service scope</label>
+  <label>Service scope</label>
   <select id="scope">
     <option value="OPD">OPD</option>
     <option value="IPD">IPD</option>
@@ -141,7 +128,7 @@
     <option value="ICU">ICU</option>
   </select>
 
-  <button onclick="checkCoverage()" id="checkBtn">Check coverage</button>
+  <button onclick="checkCoverage()">Check coverage</button>
 
   <div class="results" id="results"></div>
 
@@ -157,46 +144,19 @@ const db = window.__db || supabase.createClient(
 );
 window.__db = db;
 
-const i18n = {
-  en: {
-    title: "Bangkok Hospital Insurance Drug Checker",
-    drug: "Drug name",
-    scope: "Service scope",
-    btn: "Check coverage",
-    nodata: "No coverage data found."
-  },
-  th: {
-    title: "ระบบตรวจสอบสิทธิ์ยาประกัน",
-    drug: "ชื่อยา",
-    scope: "ประเภทบริการ",
-    btn: "ตรวจสอบสิทธิ์ยา",
-    nodata: "ไม่พบข้อมูลสิทธิ์ยา"
-  }
-};
-
-function switchLang() {
-  const l = lang.value;
-  title.textContent = i18n[l].title;
-  drugLabel.textContent = i18n[l].drug;
-  scopeLabel.textContent = i18n[l].scope;
-  checkBtn.textContent = i18n[l].btn;
-}
-
 async function checkCoverage() {
   results.innerHTML = "";
   const drug = drugInput.value.trim();
   if (!drug) return;
 
-  // ✅ 修复后的“完美版”查询逻辑
-  const { data: rules } = await db
+  // ✅ 完全回到「完美 index」的查询方式
+  const { data: rules, error } = await db
     .from("coverage_rule")
     .select("*")
-    .or(
-      `drug_name.ilike.%${drug}%,drug_generic_name.ilike.%${drug}%`
-    );
+    .ilike("drug_name", `%${drug}%`);
 
-  if (!rules || rules.length === 0) {
-    results.textContent = i18n[lang.value].nodata;
+  if (error || !rules || rules.length === 0) {
+    results.textContent = "No coverage data found.";
     return;
   }
 
@@ -236,8 +196,6 @@ async function checkCoverage() {
     results.appendChild(card);
   });
 }
-
-switchLang();
 </script>
 </body>
 </html>
