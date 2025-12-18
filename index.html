@@ -3,26 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <title>Bangkok Hospital Insurance Drug Checker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Supabase CDN -->
+  <!-- Supabase JS (UMD) -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
   <style>
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #f4f7fb;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f4f6f8;
       margin: 0;
       padding: 40px;
       color: #1f2937;
     }
 
-    .container {
-      max-width: 720px;
+    .card {
+      max-width: 700px;
       margin: auto;
       background: white;
       padding: 32px;
-      border-radius: 14px;
+      border-radius: 16px;
       box-shadow: 0 20px 40px rgba(0,0,0,0.08);
     }
 
@@ -34,146 +34,198 @@
     label {
       display: block;
       margin-top: 24px;
-      margin-bottom: 8px;
       font-weight: 600;
     }
 
     input, select, button {
       width: 100%;
       padding: 14px;
-      font-size: 16px;
+      margin-top: 8px;
       border-radius: 10px;
       border: 1px solid #d1d5db;
+      font-size: 16px;
     }
 
     button {
-      margin-top: 32px;
+      margin-top: 28px;
       background: #2563eb;
       color: white;
       border: none;
       cursor: pointer;
+      font-size: 18px;
     }
 
     button:hover {
       background: #1e40af;
     }
 
+    /* Autocomplete */
+    .autocomplete-list {
+      position: relative;
+    }
+
+    .suggestions {
+      position: absolute;
+      width: 100%;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      margin-top: 4px;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    .suggestions div {
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+
+    .suggestions div:hover {
+      background: #f3f4f6;
+    }
+
+    .status-covered { color: #059669; font-weight: 600; }
+    .status-not { color: #dc2626; font-weight: 600; }
+    .status-conditional { color: #d97706; font-weight: 600; }
+
     table {
       width: 100%;
-      margin-top: 32px;
+      margin-top: 24px;
       border-collapse: collapse;
     }
 
     th, td {
-      padding: 12px;
+      padding: 10px;
       border-bottom: 1px solid #e5e7eb;
       text-align: left;
-    }
-
-    .covered { color: #059669; font-weight: 600; }
-    .not-covered { color: #dc2626; font-weight: 600; }
-    .conditional { color: #d97706; font-weight: 600; }
-
-    .error {
-      margin-top: 24px;
-      color: #dc2626;
-      font-weight: 600;
     }
   </style>
 </head>
 
 <body>
-  <div class="container">
+  <div class="card">
     <h1>Bangkok Hospital Insurance Drug Checker</h1>
     <p>Check insurance coverage by drug and service scope</p>
 
     <label>Drug name</label>
-    <input id="drugInput" placeholder="e.g. Paracetamol" />
+    <div class="autocomplete-list">
+      <input id="drugInput" placeholder="e.g. Paracetamol" autocomplete="off" />
+      <div id="drugSuggestions" class="suggestions" style="display:none;"></div>
+    </div>
 
     <label>Service scope</label>
-    <select id="scopeSelect">
-      <option>Loading…</option>
+    <select id="serviceScopeSelect">
+      <option>Loading...</option>
     </select>
 
     <button onclick="checkCoverage()">Check coverage</button>
 
-    <div id="error" class="error"></div>
-
-    <table id="resultTable" style="display:none">
-      <thead>
-        <tr>
-          <th>Insurance Company</th>
-          <th>Status</th>
-          <th>Condition</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div id="results"></div>
   </div>
 
   <script>
-    /*********************************************************
-     * 🔧 STEP 1: 填入你自己的 Supabase 資訊（只改這裡）
-     *********************************************************/
+    // ===============================
+    // 🔑 Supabase config (你填這裡)
+    // ===============================
     const SUPABASE_URL = "https://dtfekjqhnyywjneutbli.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_ufJ1KgttNIqvmS46kK8P7g_HuYpAQ5N";
 
-    /*********************************************************
-     * ✅ STEP 2: 建立 client（用 db，不會衝突）
-     *********************************************************/
-    const db = supabase.createClient(
+    const supabase = supabasejs.createClient(
       SUPABASE_URL,
       SUPABASE_ANON_KEY
     );
 
-    /*********************************************************
-     * ⬇️ 載入 Service Scope 下拉
-     *********************************************************/
-    async function loadServiceScopes() {
-      const select = document.getElementById("scopeSelect");
+    // ===============================
+    // Load service scopes
+    // ===============================
+    const serviceScopeSelect = document.getElementById("serviceScopeSelect");
 
-      const { data, error } = await db
+    async function loadServiceScopes() {
+      const { data, error } = await supabase
         .from("service_scope")
         .select("name")
         .order("name");
 
+      serviceScopeSelect.innerHTML = "";
+
       if (error) {
-        select.innerHTML = "<option>Error loading scopes</option>";
-        console.error(error);
+        serviceScopeSelect.innerHTML = "<option>Error loading</option>";
         return;
       }
 
-      select.innerHTML = "";
       data.forEach(s => {
         const opt = document.createElement("option");
         opt.value = s.name;
         opt.textContent = s.name;
-        select.appendChild(opt);
+        serviceScopeSelect.appendChild(opt);
       });
     }
 
     loadServiceScopes();
 
-    /*********************************************************
-     * 🔍 查詢 Coverage
-     *********************************************************/
-    async function checkCoverage() {
-      const drug = document.getElementById("drugInput").value.trim();
-      const scope = document.getElementById("scopeSelect").value;
-      const errorDiv = document.getElementById("error");
-      const table = document.getElementById("resultTable");
-      const tbody = table.querySelector("tbody");
+    // ===============================
+    // Step 1: Drug autocomplete
+    // ===============================
+    const drugInput = document.getElementById("drugInput");
+    const suggestionsBox = document.getElementById("drugSuggestions");
+    let debounceTimer;
 
-      errorDiv.textContent = "";
-      table.style.display = "none";
-      tbody.innerHTML = "";
+    drugInput.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      const q = drugInput.value.trim();
 
-      if (!drug) {
-        errorDiv.textContent = "Please enter a drug name.";
+      if (q.length < 2) {
+        suggestionsBox.style.display = "none";
         return;
       }
 
-      const { data, error } = await db
+      debounceTimer = setTimeout(() => fetchDrugSuggestions(q), 300);
+    });
+
+    async function fetchDrugSuggestions(query) {
+      const { data, error } = await supabase
+        .from("drug")
+        .select("generic_name")
+        .ilike("generic_name", `%${query}%`)
+        .limit(10);
+
+      if (error || !data.length) {
+        suggestionsBox.style.display = "none";
+        return;
+      }
+
+      suggestionsBox.innerHTML = "";
+      data.forEach(d => {
+        const div = document.createElement("div");
+        div.textContent = d.generic_name;
+        div.onclick = () => {
+          drugInput.value = d.generic_name;
+          suggestionsBox.style.display = "none";
+        };
+        suggestionsBox.appendChild(div);
+      });
+
+      suggestionsBox.style.display = "block";
+    }
+
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".autocomplete-list")) {
+        suggestionsBox.style.display = "none";
+      }
+    });
+
+    // ===============================
+    // Coverage check
+    // ===============================
+    async function checkCoverage() {
+      const drugName = drugInput.value.trim();
+      const serviceScope = serviceScopeSelect.value;
+      const resultsDiv = document.getElementById("results");
+
+      resultsDiv.innerHTML = "Checking...";
+
+      const { data, error } = await supabase
         .from("coverage_rule")
         .select(`
           coverage_status,
@@ -182,37 +234,43 @@
           drug:drug_id(generic_name),
           service_scope:service_scope_id(name)
         `)
-        .ilike("drug.generic_name", `%${drug}%`)
-        .eq("service_scope.name", scope)
+        .ilike("drug.generic_name", `%${drugName}%`)
+        .eq("service_scope.name", serviceScope)
         .eq("is_active", true);
 
-      if (error) {
-        errorDiv.textContent = "Query error. Check console.";
-        console.error(error);
+      if (error || !data.length) {
+        resultsDiv.innerHTML = "<p>No coverage rules found.</p>";
         return;
       }
 
-      if (!data || data.length === 0) {
-        errorDiv.textContent = "No coverage rules found.";
-        return;
-      }
+      let html = `
+        <table>
+          <tr>
+            <th>Insurance</th>
+            <th>Status</th>
+            <th>Condition</th>
+          </tr>
+      `;
 
       data.forEach(r => {
-        const tr = document.createElement("tr");
+        let cls =
+          r.coverage_status === "covered"
+            ? "status-covered"
+            : r.coverage_status === "not_covered"
+            ? "status-not"
+            : "status-conditional";
 
-        let cls = "conditional";
-        if (r.coverage_status === "covered") cls = "covered";
-        if (r.coverage_status === "not_covered") cls = "not-covered";
-
-        tr.innerHTML = `
-          <td>${r.insurance_company?.name || "-"}</td>
-          <td class="${cls}">${r.coverage_status}</td>
-          <td>${r.condition_text || "-"}</td>
+        html += `
+          <tr>
+            <td>${r.insurance_company.name}</td>
+            <td class="${cls}">${r.coverage_status}</td>
+            <td>${r.condition_text || "-"}</td>
+          </tr>
         `;
-        tbody.appendChild(tr);
       });
 
-      table.style.display = "table";
+      html += "</table>";
+      resultsDiv.innerHTML = html;
     }
   </script>
 </body>
