@@ -3,63 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <title>Bangkok Hospital Insurance Drug Checker</title>
-
-  <!-- Supabase SDK（只載入一次） -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       background: #f5f7fb;
-      margin: 0;
       padding: 40px;
     }
     .card {
-      max-width: 720px;
+      max-width: 600px;
       margin: auto;
-      background: white;
-      padding: 40px;
+      background: #fff;
       border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0,0,0,.08);
+      padding: 32px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.08);
     }
-    h1 {
-      margin-top: 0;
-    }
-    label {
-      font-weight: 600;
-      display: block;
-      margin-top: 24px;
-    }
+    h1 { margin-top: 0; }
+    label { font-weight: 600; display: block; margin-top: 20px; }
     input, select, button {
       width: 100%;
-      padding: 14px;
-      font-size: 16px;
+      padding: 12px;
       margin-top: 8px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
+      font-size: 16px;
     }
     button {
-      margin-top: 28px;
+      margin-top: 24px;
       background: #5b5ce2;
-      color: white;
+      color: #fff;
       border: none;
+      border-radius: 8px;
       cursor: pointer;
     }
-    button:hover {
-      opacity: .9;
-    }
-    .error {
-      color: #c0392b;
-      margin-top: 16px;
-    }
-    .result {
-      margin-top: 32px;
-    }
-    footer {
-      margin-top: 40px;
-      text-align: center;
-      color: #999;
-      font-size: 14px;
+    #result {
+      margin-top: 24px;
+      white-space: pre-wrap;
     }
   </style>
 </head>
@@ -77,116 +55,82 @@
       <option>Loading...</option>
     </select>
 
-    <button onclick="checkCoverage()">Check coverage</button>
+    <button id="checkBtn">Check coverage</button>
 
-    <div id="message" class="error"></div>
-    <div id="results" class="result"></div>
-
-    <footer>Designed by Jarkko</footer>
+    <div id="result"></div>
+    <p style="text-align:center;color:#999;margin-top:40px;">Designed by Jarkko</p>
   </div>
 
-  <script>
-    /***********************
-     * 1️⃣ Supabase client（唯一）
-     ***********************/
-    const SUPABASE_URL = "https://dtfekjqhnyywjneutbli.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_ufJ1KgttNIqvmS46kK8P7g_HuYpAQ5N";
+  <!-- ✅ ONLY ONE Supabase import -->
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    const supabase = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_KEY
-    );
+    const SUPABASE_URL = "https://dftekjqhnyywjneutbli.supabase.co";
+    const SUPABASE_ANON_KEY = "PASTE_YOUR_ANON_KEY_HERE";
 
-    /***********************
-     * 2️⃣ 載入 Service Scope
-     ***********************/
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const serviceSelect = document.getElementById("serviceScopeSelect");
+    const checkBtn = document.getElementById("checkBtn");
+    const resultDiv = document.getElementById("result");
+
+    // ===== Load service scopes =====
     async function loadServiceScopes() {
-      const select = document.getElementById("serviceScopeSelect");
-      select.innerHTML = "<option>Loading...</option>";
-
       const { data, error } = await supabase
         .from("service_scope")
         .select("id, name")
         .eq("is_active", true)
         .order("id");
 
+      serviceSelect.innerHTML = "";
+
       if (error) {
-        select.innerHTML = "<option>Error loading</option>";
+        serviceSelect.innerHTML = "<option>Error loading</option>";
         console.error(error);
         return;
       }
 
-      select.innerHTML = "";
-      data.forEach(s => {
+      for (const s of data) {
         const opt = document.createElement("option");
         opt.value = s.id;
         opt.textContent = s.name;
-        select.appendChild(opt);
-      });
+        serviceSelect.appendChild(opt);
+      }
     }
 
-    /***********************
-     * 3️⃣ 查詢 Coverage（掛到 window）
-     ***********************/
-    window.checkCoverage = async function () {
-      const drugName = document.getElementById("drugInput").value.trim().toLowerCase();
-      const scopeId = document.getElementById("serviceScopeSelect").value;
+    // ===== Check coverage =====
+    async function checkCoverage() {
+      resultDiv.textContent = "Searching...";
 
-      const msg = document.getElementById("message");
-      const results = document.getElementById("results");
-      msg.textContent = "";
-      results.innerHTML = "";
+      const drugName = document.getElementById("drugInput").value.trim();
+      const serviceScopeId = serviceSelect.value;
 
       if (!drugName) {
-        msg.textContent = "Please enter drug name.";
+        resultDiv.textContent = "Please enter a drug name.";
         return;
       }
 
-      // 找 drug
-      const { data: drugs, error: drugErr } = await supabase
-        .from("drug")
-        .select("id, generic_name")
-        .ilike("generic_name", `%${drugName}%`);
-
-      if (drugErr || drugs.length === 0) {
-        msg.textContent = "Drug not found.";
-        return;
-      }
-
-      const drugId = drugs[0].id;
-
-      // 查 coverage
       const { data, error } = await supabase
-        .from("coverage_rule")
-        .select(`
-          coverage_status,
-          condition_text,
-          insurance_company:insurance_company_id ( name )
-        `)
-        .eq("drug_id", drugId)
-        .eq("service_scope_id", scopeId)
-        .eq("is_active", true);
+        .from("coverage_view")
+        .select("*")
+        .ilike("generic_name", `%${drugName}%`)
+        .eq("service_scope_id", serviceScopeId);
 
-      if (error || data.length === 0) {
-        msg.textContent = "No coverage rule found.";
+      if (error) {
+        resultDiv.textContent = "Query error. Check console.";
+        console.error(error);
         return;
       }
 
-      data.forEach(r => {
-        const div = document.createElement("div");
-        div.innerHTML = `
-          <strong>${r.insurance_company.name}</strong><br/>
-          Status: ${r.coverage_status}<br/>
-          ${r.condition_text || ""}
-          <hr/>
-        `;
-        results.appendChild(div);
-      });
-    };
+      if (!data.length) {
+        resultDiv.textContent = "No coverage found.";
+        return;
+      }
 
-    /***********************
-     * 4️⃣ 啟動
-     ***********************/
+      resultDiv.textContent = JSON.stringify(data, null, 2);
+    }
+
+    checkBtn.addEventListener("click", checkCoverage);
     loadServiceScopes();
   </script>
 </body>
