@@ -1,82 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Bangkok Hospital Insurance Drug Checker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<meta charset="UTF-8" />
+<title>Bangkok Hospital Insurance Drug Checker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
-      background: #f3f5f9;
-      padding: 40px 16px;
-      color: #1f2937;
-    }
-    .card {
-      max-width: 720px;
-      margin: auto;
-      background: #fff;
-      padding: 32px;
-      border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0,0,0,.08);
-    }
-    h1 { margin-top: 0; }
-    label { font-weight: 600; margin-top: 20px; display:block; }
-    input, select {
-      width: 100%;
-      padding: 14px;
-      margin-top: 8px;
-      border-radius: 10px;
-      border: 1px solid #d1d5db;
-      font-size: 16px;
-    }
-    button {
-      margin-top: 28px;
-      width: 100%;
-      padding: 16px;
-      font-size: 18px;
-      border-radius: 12px;
-      border: none;
-      background: #4f46e5;
-      color: #fff;
-      cursor: pointer;
-    }
-    table {
-      width: 100%;
-      margin-top: 32px;
-      border-collapse: collapse;
-    }
-    th, td {
-      padding: 12px;
-      border-bottom: 1px solid #e5e7eb;
-      text-align: left;
-    }
-    .covered { color: #15803d; font-weight:600; }
-    .not-covered { color:#b91c1c; font-weight:600; }
-    .conditional { color:#ca8a04; font-weight:600; }
-    .error { color:#b91c1c; margin-top:16px; }
-    .footer { text-align:center; font-size:12px; color:#9ca3af; margin-top:40px; }
-  </style>
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+  background:#f3f5f9;
+  padding:40px 16px;
+}
+.card {
+  max-width:720px;
+  margin:auto;
+  background:#fff;
+  padding:32px;
+  border-radius:16px;
+  box-shadow:0 20px 40px rgba(0,0,0,.08);
+}
+h1 { margin-top:0; }
+label { font-weight:600; margin-top:20px; display:block; }
+input, select {
+  width:100%;
+  padding:14px;
+  margin-top:8px;
+  border-radius:10px;
+  border:1px solid #d1d5db;
+  font-size:16px;
+}
+button {
+  margin-top:28px;
+  width:100%;
+  padding:16px;
+  font-size:18px;
+  border-radius:12px;
+  border:none;
+  background:#4f46e5;
+  color:#fff;
+}
+table {
+  width:100%;
+  margin-top:32px;
+  border-collapse:collapse;
+}
+th, td {
+  padding:12px;
+  border-bottom:1px solid #e5e7eb;
+}
+.covered { color:#15803d; font-weight:600; }
+.not_covered { color:#b91c1c; font-weight:600; }
+.conditional { color:#ca8a04; font-weight:600; }
+.error { color:#b91c1c; margin-top:16px; }
+.footer {
+  text-align:center;
+  font-size:12px;
+  color:#9ca3af;
+  margin-top:40px;
+}
+</style>
 </head>
 
 <body>
 <div class="card">
-  <h1>Bangkok Hospital Insurance Drug Checker</h1>
-  <p>Check insurance coverage by drug and service scope</p>
+<h1>Bangkok Hospital Insurance Drug Checker</h1>
+<p>Check insurance coverage by drug and service scope</p>
 
-  <label>Drug name</label>
-  <input id="drugInput" placeholder="e.g. Paracetamol" />
+<label>Drug name</label>
+<input id="drugInput" placeholder="e.g. Paracetamol" />
 
-  <label>Service scope</label>
-  <select id="scopeSelect"></select>
+<label>Service scope</label>
+<select id="scopeSelect"></select>
 
-  <button onclick="checkCoverage()">Check coverage</button>
+<button onclick="checkCoverage()">Check coverage</button>
 
-  <div id="error" class="error"></div>
-  <div id="result"></div>
+<div id="error" class="error"></div>
+<div id="result"></div>
 
-  <div class="footer">Designed by Jarkko</div>
+<div class="footer">Designed by Jarkko</div>
 </div>
 
 <script>
@@ -91,22 +93,26 @@ const resultDiv = document.getElementById("result");
 
 /* Load service scopes */
 (async () => {
-  const { data } = await sb
+  const { data, error } = await sb
     .from("service_scope")
-    .select("id, code, name")
+    .select("id, code")
     .eq("is_active", true)
     .order("id");
+
+  if (error) {
+    errorDiv.textContent = "Failed to load service scopes.";
+    return;
+  }
 
   scopeSelect.innerHTML = "";
   data.forEach(s => {
     const o = document.createElement("option");
-    o.value = s.id;           // ⚠️ 用 id
+    o.value = s.id;
     o.textContent = s.code;
     scopeSelect.appendChild(o);
   });
 })();
 
-/* Main search */
 async function checkCoverage() {
   errorDiv.textContent = "";
   resultDiv.innerHTML = "";
@@ -119,7 +125,7 @@ async function checkCoverage() {
     return;
   }
 
-  // 1️⃣ 查 drug
+  // 1️⃣ Find drug
   const { data: drugs } = await sb
     .from("drug")
     .select("id, generic_name")
@@ -132,43 +138,39 @@ async function checkCoverage() {
 
   const drugIds = drugs.map(d => d.id);
 
-  // 2️⃣ 查 coverage_rule（用 FK）
+  // 2️⃣ Find coverage rules
   const { data: rules, error } = await sb
     .from("coverage_rule")
-    .select(`
-      coverage_status,
-      condition_text,
-      insurance_company (
-        name,
-        logo_url
-      )
-    `)
+    .select("coverage_status, condition_text, insurance_company_id")
     .in("drug_id", drugIds)
     .eq("service_scope_id", scopeId);
 
-  if (error) {
-    console.error(error);
-    errorDiv.textContent = "Query error.";
-    return;
-  }
-
-  if (!rules || rules.length === 0) {
+  if (error || !rules || rules.length === 0) {
     errorDiv.textContent = "No coverage data.";
     return;
   }
 
+  // 3️⃣ Load insurance companies
+  const companyIds = [...new Set(rules.map(r => r.insurance_company_id))];
+
+  const { data: companies } = await sb
+    .from("insurance_company")
+    .select("id, name, logo_url")
+    .in("id", companyIds);
+
+  const companyMap = {};
+  companies.forEach(c => companyMap[c.id] = c);
+
+  // Render
   let html = `<table>
     <tr><th>Insurance</th><th>Status</th><th>Condition</th></tr>`;
 
   rules.forEach(r => {
-    let cls = r.coverage_status === "covered" ? "covered"
-            : r.coverage_status === "not_covered" ? "not-covered"
-            : "conditional";
-
+    const c = companyMap[r.insurance_company_id];
     html += `
       <tr>
-        <td>${r.insurance_company?.name || ""}</td>
-        <td class="${cls}">${r.coverage_status}</td>
+        <td>${c?.name || "-"}</td>
+        <td class="${r.coverage_status}">${r.coverage_status}</td>
         <td>${r.condition_text || "-"}</td>
       </tr>`;
   });
